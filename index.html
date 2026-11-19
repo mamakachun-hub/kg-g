@@ -2,8 +2,13 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="保良局田家炳小學 — 小三數學「克和公斤」互動賽車學習遊戲" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>保良局田家炳小學 — 小三數學「克和公斤」賽車大挑戰</title>
+  <!-- 內嵌 SVG 網頁圖示，避免 GitHub Pages 產生 favicon 404 錯誤 -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏎️</text></svg>" />
   <!-- 載入 Tailwind CSS 以構建響應式現代介面 -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- 載入適合繁體中文與數字顯示的圓潤字體 -->
@@ -24,7 +29,9 @@
       padding: 0;
       width: 100%;
       height: 100%;
+      height: 100dvh;
       overflow: hidden;
+      overscroll-behavior: none;
       font-family: 'Noto Sans TC', 'Fredoka', sans-serif;
       background-color: #0f172a;
     }
@@ -182,7 +189,7 @@
   <canvas id="gameCanvas"></canvas>
 
   <!-- ==================== 手機/平板底部半透明觸控方向按鈕與加速按鈕 ==================== -->
-  <div id="touchControls" class="hidden fixed bottom-3 left-0 right-0 z-20 px-3 sm:px-8 flex justify-between items-center pointer-events-none gap-2">
+  <div id="touchControls" class="hidden fixed bottom-3 left-0 right-0 z-20 px-3 sm:px-8 flex justify-between items-center pointer-events-none gap-2" style="padding-bottom: env(safe-area-inset-bottom, 0px);">
     <button id="btnLeft" type="button" aria-label="向左移動"
       class="pointer-events-auto kart-btn px-4 py-3.5 sm:px-6 sm:py-4 rounded-2xl bg-slate-900/70 hover:bg-slate-900/85 active:bg-amber-400/90 active:text-slate-900 backdrop-blur-md border-2 border-white/85 shadow-xl flex items-center justify-center gap-1 text-white text-base sm:text-xl font-black">
       <span>⬅️</span>
@@ -322,7 +329,7 @@
         <button id="downloadHtmlBtn" type="button"
           class="kart-btn py-3 px-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-extrabold text-sm sm:text-base border-2 border-slate-300 shadow cursor-pointer flex items-center justify-center gap-1.5">
           <span>💾</span>
-          <span>下載單一網頁檔 (GitHub Pages 用)</span>
+          <span>下載 index.html (GitHub Pages 用)</span>
         </button>
       </div>
     </div>
@@ -332,6 +339,9 @@
   <script>
     (function () {
       'use strict';
+
+      // 在頁面初始化修改任何 DOM 狀態前，先備份純淨的原始 HTML，供下載 GitHub Pages 檔案使用
+      const initialCleanHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
 
       /* =====================================================================
        * 1. 自動日期初始化 (繁體中文 YYYY年M月D日)
@@ -669,7 +679,9 @@
         return qObj;
       }
 
-      // 賽道與渲染常數 (答題後 3 秒到道具，道具後 7 秒到答案拱門，每輪共 10 秒)
+      /* =====================================================================
+       * 4. 偽 3D 賽道與渲染常數 (答題後 3 秒到道具，道具後 7 秒到答案拱門，每輪共 10 秒)
+       * ===================================================================== */
       const SEG_LEN = 50;           // 每段賽道世界長度
       const DRAW_DISTANCE = 106;    // 向前繪製段數 (涵蓋 5300 單位視野，遠處道具與拱門清晰可見)
       const BASE_SPEED = 500;       // 每秒一般前進世界距離
@@ -1036,6 +1048,7 @@
           centerBanner.life -= dt;
           if (centerBanner.life <= 0) centerBanner = null;
         }
+
         // 加速狀態時以超音速衝刺直至通過拱門，否則維持每輪 10 秒穩定節奏
         const currentSpeed = isBoostingToArch ? BOOST_SPEED : BASE_SPEED;
         trackZ += currentSpeed * dt;
@@ -1863,12 +1876,12 @@
       }
 
       /* =====================================================================
-       * 10. 響應式 Canvas 縮放 (支援 Retina / devicePixelRatio)
+       * 10. 響應式 Canvas 縮放 (支援 Retina / devicePixelRatio 與手機網址列動態高度)
        * ===================================================================== */
       function resizeCanvas() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const w = window.innerWidth;
-        const h = window.innerHeight;
+        const w = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+        const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
         canvas.width = Math.floor(w * dpr);
         canvas.height = Math.floor(h * dpr);
         canvas.style.width = `${w}px`;
@@ -1877,6 +1890,9 @@
       }
 
       window.addEventListener('resize', resizeCanvas);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', resizeCanvas);
+      }
       resizeCanvas();
 
       /* =====================================================================
@@ -1890,7 +1906,7 @@
         hasTargetSnap = true;
       }
 
-      // 畫布手指觸控滑動 + 直接點擊左/中/右車道或拱門快速切換
+      // 畫布手指觸控滑動 + 輕觸加速或快速切換車道
       canvas.addEventListener('touchstart', (e) => {
         if (gameState !== 'PLAYING') return;
         if (e.touches.length > 0) {
@@ -2027,14 +2043,13 @@
       document.getElementById('startGameBtn').addEventListener('click', startGame);
       document.getElementById('restartBtn').addEventListener('click', startGame);
 
-      // 下載單一完整 HTML 檔案 (方便直接部署至 GitHub Pages)
+      // 下載純淨版單一 index.html 檔案 (可直接上傳至 GitHub Pages)
       document.getElementById('downloadHtmlBtn').addEventListener('click', () => {
-        const fullHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-        const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+        const blob = new Blob([initialCleanHtml], { type: 'text/html;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'PLK_TKP_P3_Math_Kart.html';
+        a.download = 'index.html';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -2042,9 +2057,11 @@
       });
 
       /* =====================================================================
-       * 12. 啟動主動畫迴圈 (window.onload)
+       * 12. 啟動主動畫迴圈
        * ===================================================================== */
       let lastTimestamp = 0;
+      let isLoopStarted = false;
+
       function gameLoop(timestamp) {
         if (!lastTimestamp) lastTimestamp = timestamp;
         const dt = Math.min(0.05, (timestamp - lastTimestamp) / 1000);
@@ -2056,10 +2073,18 @@
         requestAnimationFrame(gameLoop);
       }
 
-      window.onload = function () {
+      function initLoop() {
+        if (isLoopStarted) return;
+        isLoopStarted = true;
         resizeCanvas();
         requestAnimationFrame(gameLoop);
-      };
+      }
+
+      if (document.readyState === 'complete') {
+        initLoop();
+      } else {
+        window.addEventListener('load', initLoop);
+      }
     })();
   </script>
 </body>
