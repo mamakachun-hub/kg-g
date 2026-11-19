@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>保良局田家炳小學 — 小三數學「克和公斤」賽車大挑戰</title>
+  <!-- 載入 Tailwind CSS 以構建響應式現代介面 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 載入適合繁體中文與數字顯示的圓潤字體 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet" />
+  <style>
+    /* 全域字體與防誤觸設定 */
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Noto Sans TC', 'Fredoka', sans-serif;
+      background-color: #0f172a;
+    }
+
+    /* 遊戲畫布自適應滿版 */
+    #gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none; /* 防止手機上下滑動頁面或縮放 */
+    }
+
+    /* 剩餘時間少於 10 秒的紅色閃爍脈動警告動畫 */
+    @keyframes timerDangerPulse {
+      0%, 100% {
+        transform: scale(1);
+        background-color: #dc2626;
+        border-color: #fef08a;
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.85), 0 4px 14px rgba(220, 38, 38, 0.6);
+      }
+      50% {
+        transform: scale(1.09);
+        background-color: #ef4444;
+        border-color: #ffffff;
+        box-shadow: 0 0 22px 6px rgba(239, 68, 68, 0.9), 0 6px 18px rgba(220, 38, 38, 0.8);
+      }
+    }
+
+    .timer-danger {
+      animation: timerDangerPulse 0.55s infinite ease-in-out !important;
+      color: #ffffff !important;
+    }
+
+    /* 彈窗進場動畫 */
+    @keyframes popIn {
+      0% { opacity: 0; transform: scale(0.9) translateY(12px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .animate-pop-in {
+      animation: popIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* 浮動按鈕立體感 */
+    .kart-btn {
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    .kart-btn:active {
+      transform: translateY(3px) scale(0.97);
+    }
+
+    /* 累積加速道具就緒時的呼吸發光動畫 */
+    @keyframes boostReadyPulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.8), 0 6px 16px rgba(2, 132, 199, 0.55);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 18px 5px rgba(250, 204, 21, 0.85), 0 8px 20px rgba(2, 132, 199, 0.75);
+      }
+    }
+
+    .boost-ready-btn {
+      animation: boostReadyPulse 0.9s infinite ease-in-out;
+    }
+
+    /* 結算面板內部自訂捲軸 */
+    .custom-scroll {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="relative w-full h-full bg-sky-900 text-slate-800">
+
+  <!-- ==================== 頂部資訊欄 (HUD) ==================== -->
+  <header id="topHud" class="fixed top-0 left-0 right-0 z-30 pointer-events-none px-2 pt-2 sm:px-4 sm:pt-3">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-1.5 sm:gap-3 bg-white/95 backdrop-blur-md border-2 border-amber-400 shadow-lg rounded-2xl px-2.5 py-1.5 sm:px-4 sm:py-2 pointer-events-auto">
+      
+      <!-- 左上方：學校名稱與自動生成今日日期 -->
+      <div class="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2.5 min-w-0">
+        <div class="flex items-center gap-1.5 font-black text-blue-900 text-xs sm:text-base md:text-lg truncate">
+          <span class="text-base sm:text-xl">🏫</span>
+          <span class="truncate">保良局田家炳小學</span>
+        </div>
+        <div id="hudDate" class="inline-flex items-center gap-1 text-[11px] sm:text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full w-fit">
+          📅 2026年11月19日
+        </div>
+      </div>
+
+      <!-- 中上方：目前分數、累積加速次數與答題數統計 -->
+      <div class="flex items-center gap-1.5 sm:gap-2.5">
+        <div class="flex items-center gap-1 bg-amber-100 border border-amber-300 text-amber-900 font-black px-2.5 py-1 rounded-xl text-xs sm:text-base shadow-inner">
+          <span>🏆</span>
+          <span>分數：<span id="hudScore" class="text-amber-600 text-sm sm:text-lg">0</span></span>
+        </div>
+        <div id="hudBoostBox" class="flex items-center gap-1 bg-sky-100 border border-sky-300 text-sky-900 font-black px-2 py-1 rounded-xl text-xs sm:text-sm shadow-inner transition-colors">
+          <span>⚡</span>
+          <span>加速：<span id="hudBoost" class="text-sky-600 text-sm sm:text-base">0</span>/2</span>
+        </div>
+        <div class="hidden md:flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold px-2.5 py-1 rounded-xl text-xs sm:text-sm">
+          <span>✅ 答對：<span id="hudCorrect">0</span></span>
+          <span class="text-slate-300">|</span>
+          <span>📝 已答：<span id="hudTotal">0</span></span>
+        </div>
+      </div>
+
+      <!-- 右上方：倒數計時器 + 音效開關按鈕 -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <div id="timerBox" class="flex items-center gap-1 bg-sky-600 border-2 border-sky-300 text-white font-black px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl text-xs sm:text-base shadow transition-colors">
+          <span>⏱️</span>
+          <span id="hudTimer">60</span><span>秒</span>
+        </div>
+        <button id="soundToggleBtn" type="button" aria-label="切換音效" title="開啟/關閉音效"
+          class="kart-btn flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-base sm:text-xl shadow cursor-pointer">
+          🔊
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== 題目看板 (賽道上方偏中，精簡不遮擋遠方視野) ==================== -->
+    <div id="questionBanner" class="hidden max-w-3xl mx-auto mt-2 sm:mt-2.5 pointer-events-none px-1">
+      <div class="bg-slate-900/95 backdrop-blur-md border-2 border-yellow-400 rounded-2xl px-3.5 py-2.5 sm:px-6 sm:py-3 shadow-xl text-center">
+        <div class="flex items-center justify-center gap-2 mb-0.5">
+          <span id="qBadge" class="text-xs sm:text-sm font-extrabold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-yellow-400 text-slate-900">
+            第 1 題｜單位換算
+          </span>
+          <span class="text-xs text-sky-300 font-bold md:hidden">
+            (✅ <span id="hudCorrectMobile">0</span> 題)
+          </span>
+        </div>
+        <div id="qText" class="text-white font-black text-lg sm:text-2xl md:text-3xl tracking-wide leading-snug drop-shadow">
+          題目準備中...
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== 偽 3D 賽車主畫布 ==================== -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- ==================== 手機/平板底部半透明觸控方向按鈕與加速按鈕 ==================== -->
+  <div id="touchControls" class="hidden fixed bottom-3 left-0 right-0 z-20 px-3 sm:px-8 flex justify-between items-center pointer-events-none gap-2">
+    <button id="btnLeft" type="button" aria-label="向左移動"
+      class="pointer-events-auto kart-btn px-4 py-3.5 sm:px-6 sm:py-4 rounded-2xl bg-slate-900/70 hover:bg-slate-900/85 active:bg-amber-400/90 active:text-slate-900 backdrop-blur-md border-2 border-white/85 shadow-xl flex items-center justify-center gap-1 text-white text-base sm:text-xl font-black">
+      <span>⬅️</span>
+      <span>向左</span>
+    </button>
+    <button id="btnBoost" type="button" aria-label="向前加速"
+      class="pointer-events-auto kart-btn px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl bg-slate-900/65 backdrop-blur-md border-2 border-white/40 text-white/80 text-xs sm:text-base font-black shadow-xl flex items-center justify-center gap-1.5 transition-all">
+      <span>⚡</span>
+      <span id="btnBoostText">加速道具 0/2</span>
+    </button>
+    <button id="btnRight" type="button" aria-label="向右移動"
+      class="pointer-events-auto kart-btn px-4 py-3.5 sm:px-6 sm:py-4 rounded-2xl bg-slate-900/70 hover:bg-slate-900/85 active:bg-amber-400/90 active:text-slate-900 backdrop-blur-md border-2 border-white/85 shadow-xl flex items-center justify-center gap-1 text-white text-base sm:text-xl font-black">
+      <span>向右</span>
+      <span>➡️</span>
+    </button>
+  </div>
+
+  <!-- ==================== 開始畫面覆蓋層 ==================== -->
+  <div id="startModal" class="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-5 bg-slate-900/65 backdrop-blur-sm">
+    <div class="animate-pop-in w-full max-w-xl bg-white rounded-3xl border-4 border-amber-400 shadow-2xl overflow-hidden">
+      <!-- 頂部彩色賽車橫幅 -->
+      <div class="bg-gradient-to-r from-blue-700 via-indigo-700 to-sky-600 px-5 py-4 sm:py-5 text-center text-white relative">
+        <div class="inline-block bg-amber-400 text-slate-900 font-black text-xs sm:text-sm px-3 py-1 rounded-full mb-1.5 shadow">
+          🏫 保良局田家炳小學
+        </div>
+        <h1 class="text-xl sm:text-3xl font-black tracking-tight drop-shadow">
+          🏎️ 小三數學：克和公斤極速賽車
+        </h1>
+        <p class="text-sky-100 text-xs sm:text-sm font-bold mt-1">
+          衝過彎道、收集時間道具、穿過正確答案拱門！
+        </p>
+      </div>
+
+      <!-- 玩法圖示說明 -->
+      <div class="p-4 sm:p-6 space-y-3 sm:space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-center">
+          <div class="bg-sky-50 border-2 border-sky-200 rounded-2xl p-2.5 sm:p-3">
+            <div class="text-2xl sm:text-3xl mb-1">👆 / ⌨️</div>
+            <div class="font-black text-sky-900 text-xs sm:text-sm">左右移動與加速</div>
+            <div class="text-[11px] sm:text-xs text-slate-600 mt-0.5">左右滑動或 <span class="font-bold">← →</span> 轉向；<span class="text-sky-700 font-bold">輕觸屏幕 / 按 ↑</span> 加速</div>
+          </div>
+          <div class="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-2.5 sm:p-3">
+            <div class="text-2xl sm:text-3xl mb-1">⭐⚡ / 🍌</div>
+            <div class="font-black text-emerald-900 text-xs sm:text-sm">加時與加速道具</div>
+            <div class="text-[11px] sm:text-xs text-slate-600 mt-0.5">吃道具 <span class="text-emerald-600 font-bold">+3/+5/+10秒</span> 或 <span class="text-sky-600 font-bold">⚡加速(最多2次)</span></div>
+          </div>
+          <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-2.5 sm:p-3">
+            <div class="text-2xl sm:text-3xl mb-1">⛩️✅</div>
+            <div class="font-black text-amber-900 text-xs sm:text-sm">穿過答案拱門</div>
+            <div class="text-[11px] sm:text-xs text-slate-600 mt-0.5">每次加速直衝通過拱門；答對 <span class="text-amber-600 font-bold">+100分</span>，答錯 <span class="text-rose-600 font-bold">-5秒</span></div>
+          </div>
+        </div>
+
+        <div class="bg-slate-100 rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-700 flex items-center justify-between">
+          <span>⏱️ 起始時間：<strong class="text-blue-700">60 秒</strong></span>
+          <span>📚 主題：<strong class="text-indigo-700">克 (g) 與 公斤 (kg)</strong></span>
+        </div>
+
+        <button id="startGameBtn" type="button"
+          class="kart-btn w-full py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 hover:from-amber-500 hover:to-red-600 text-white font-black text-lg sm:text-2xl shadow-xl border-b-4 border-red-700 cursor-pointer flex items-center justify-center gap-2">
+          <span>🏁</span>
+          <span>開始賽車出發！</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 遊戲結束成績結算與錯題記錄面板 ==================== -->
+  <div id="resultModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/75 backdrop-blur-md">
+    <div class="animate-pop-in w-full max-w-2xl max-h-[92vh] flex flex-col bg-white rounded-3xl border-4 border-amber-400 shadow-2xl overflow-hidden">
+      
+      <!-- 結算頂部標題 -->
+      <div class="bg-gradient-to-r from-indigo-800 via-blue-700 to-sky-600 px-4 py-3.5 sm:px-6 sm:py-4 text-white shrink-0">
+        <div class="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm font-bold text-amber-300 mb-1">
+          <span>🏫 保良局田家炳小學</span>
+          <span id="resultDate">📅 2026年11月19日</span>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-xl sm:text-2xl font-black">🏁 賽車挑戰成績結算</h2>
+          <span id="rankBadge" class="px-3 py-1 rounded-full bg-amber-400 text-slate-900 font-black text-xs sm:text-sm shadow">
+            🏆 數學小車神
+          </span>
+        </div>
+      </div>
+
+      <!-- 數據總結卡片 + 錯題記錄捲動區 -->
+      <div class="p-4 sm:p-5 overflow-y-auto custom-scroll space-y-4 flex-1">
+        
+        <!-- 5 項核心數據 -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-2.5">
+          <div class="bg-amber-50 border-2 border-amber-300 rounded-2xl p-2.5 text-center">
+            <div class="text-xs font-bold text-amber-800">🏆 總分數</div>
+            <div id="resScore" class="text-2xl sm:text-3xl font-black text-amber-600 mt-0.5">0</div>
+            <div class="text-[11px] text-amber-700 font-bold">分</div>
+          </div>
+          <div class="bg-sky-50 border-2 border-sky-300 rounded-2xl p-2.5 text-center">
+            <div class="text-xs font-bold text-sky-800">⏱️ 總遊玩時間</div>
+            <div id="resTotalTime" class="text-2xl sm:text-3xl font-black text-sky-600 mt-0.5">60.0</div>
+            <div class="text-[11px] text-sky-700 font-bold">秒 (含加減時)</div>
+          </div>
+          <div class="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-2.5 text-center">
+            <div class="text-xs font-bold text-emerald-800">✅ 答對題數</div>
+            <div id="resCorrect" class="text-2xl sm:text-3xl font-black text-emerald-600 mt-0.5">0</div>
+            <div class="text-[11px] text-emerald-700 font-bold">題</div>
+          </div>
+          <div class="bg-rose-50 border-2 border-rose-300 rounded-2xl p-2.5 text-center">
+            <div class="text-xs font-bold text-rose-800">❌ 答錯題數</div>
+            <div id="resWrong" class="text-2xl sm:text-3xl font-black text-rose-600 mt-0.5">0</div>
+            <div class="text-[11px] text-rose-700 font-bold">題</div>
+          </div>
+          <div class="col-span-2 sm:col-span-1 bg-indigo-50 border-2 border-indigo-300 rounded-2xl p-2.5 text-center">
+            <div class="text-xs font-bold text-indigo-800">🎯 答對率</div>
+            <div id="resAccuracy" class="text-2xl sm:text-3xl font-black text-indigo-600 mt-0.5">0%</div>
+            <div class="text-[11px] text-indigo-700 font-bold">準確度</div>
+          </div>
+        </div>
+
+        <!-- 錯題記錄區塊 -->
+        <div class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-3.5 sm:p-4">
+          <h3 class="font-black text-slate-800 text-sm sm:text-base mb-2.5 flex items-center gap-1.5">
+            <span>📊</span>
+            <span>錯題記錄與數學解說</span>
+          </h3>
+          <div id="wrongListContainer" class="space-y-2.5">
+            <!-- 由 JavaScript 動態填入錯題或滿分鼓勵 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部操作按鈕 -->
+      <div class="p-3.5 sm:p-4 bg-slate-100 border-t border-slate-200 flex flex-col sm:flex-row gap-2.5 shrink-0">
+        <button id="restartBtn" type="button"
+          class="kart-btn flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-base sm:text-lg shadow-lg border-b-4 border-teal-800 cursor-pointer flex items-center justify-center gap-2">
+          <span>🔄</span>
+          <span>再玩一次</span>
+        </button>
+        <button id="downloadHtmlBtn" type="button"
+          class="kart-btn py-3 px-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-extrabold text-sm sm:text-base border-2 border-slate-300 shadow cursor-pointer flex items-center justify-center gap-1.5">
+          <span>💾</span>
+          <span>下載單一網頁檔 (GitHub Pages 用)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 遊戲核心邏輯腳本 ==================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* =====================================================================
+       * 1. 自動日期初始化 (繁體中文 YYYY年M月D日)
+       * ===================================================================== */
+      function getFormattedToday() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        return `📅 ${year}年${month}月${day}日`;
+      }
+
+      const formattedDateStr = getFormattedToday();
+      const hudDateEl = document.getElementById('hudDate');
+      const resultDateEl = document.getElementById('resultDate');
+      if (hudDateEl) hudDateEl.textContent = formattedDateStr;
+      if (resultDateEl) resultDateEl.textContent = formattedDateStr;
+
+      /* =====================================================================
+       * 2. DOM 參照與 Web Audio API 合成音效引擎 (免外部音檔)
+       * ===================================================================== */
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const hudScoreEl = document.getElementById('hudScore');
+      const hudBoostEl = document.getElementById('hudBoost');
+      const hudBoostBoxEl = document.getElementById('hudBoostBox');
+      const hudCorrectEl = document.getElementById('hudCorrect');
+      const hudCorrectMobileEl = document.getElementById('hudCorrectMobile');
+      const hudTotalEl = document.getElementById('hudTotal');
+      const hudTimerEl = document.getElementById('hudTimer');
+      const timerBoxEl = document.getElementById('timerBox');
+      const qBadgeEl = document.getElementById('qBadge');
+      const qTextEl = document.getElementById('qText');
+      const startModalEl = document.getElementById('startModal');
+      const resultModalEl = document.getElementById('resultModal');
+      const questionBannerEl = document.getElementById('questionBanner');
+      const touchControlsEl = document.getElementById('touchControls');
+      const btnBoostEl = document.getElementById('btnBoost');
+      const btnBoostTextEl = document.getElementById('btnBoostText');
+
+      const sfx = {
+        ctx: null,
+        enabled: true,
+
+        init() {
+          try {
+            if (!this.ctx) {
+              const AudioCtx = window.AudioContext || window.webkitAudioContext;
+              if (AudioCtx) this.ctx = new AudioCtx();
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+              this.ctx.resume();
+            }
+          } catch (e) {
+            // 忽略瀏覽器音效權限限制
+          }
+        },
+
+        toggle() {
+          this.enabled = !this.enabled;
+          if (this.enabled) this.init();
+          return this.enabled;
+        },
+
+        playTone(freq, duration, type = 'sine', volume = 0.14, delay = 0) {
+          if (!this.enabled) return;
+          try {
+            this.init();
+            if (!this.ctx) return;
+            const now = this.ctx.currentTime + delay;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, now);
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.exponentialRampToValueAtTime(volume, now + 0.015);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + duration + 0.02);
+          } catch (e) {
+            // 忽略音效播放異常
+          }
+        },
+
+        playStart() {
+          // 賽車起跑三短一長提示音
+          this.playTone(440, 0.14, 'triangle', 0.15, 0);
+          this.playTone(440, 0.14, 'triangle', 0.15, 0.18);
+          this.playTone(440, 0.14, 'triangle', 0.15, 0.36);
+          this.playTone(880, 0.32, 'sawtooth', 0.16, 0.54);
+        },
+
+        playGoodItem() {
+          this.playTone(587.33, 0.12, 'sine', 0.16, 0);
+          this.playTone(880, 0.22, 'sine', 0.18, 0.09);
+        },
+
+        playBoostCollect() {
+          this.playTone(523.25, 0.09, 'triangle', 0.16, 0);
+          this.playTone(783.99, 0.09, 'triangle', 0.17, 0.07);
+          this.playTone(1174.66, 0.2, 'sine', 0.19, 0.14);
+        },
+
+        playBoostActivate() {
+          this.playTone(330, 0.12, 'sawtooth', 0.15, 0);
+          this.playTone(660, 0.18, 'sawtooth', 0.17, 0.06);
+          this.playTone(990, 0.28, 'triangle', 0.18, 0.12);
+        },
+
+        playBadItem() {
+          this.playTone(220, 0.16, 'sawtooth', 0.16, 0);
+          this.playTone(146.83, 0.28, 'sawtooth', 0.18, 0.12);
+        },
+
+        playCorrect() {
+          this.playTone(523.25, 0.11, 'triangle', 0.16, 0);
+          this.playTone(659.25, 0.11, 'triangle', 0.16, 0.09);
+          this.playTone(783.99, 0.11, 'triangle', 0.16, 0.18);
+          this.playTone(1046.5, 0.28, 'triangle', 0.18, 0.27);
+        },
+
+        playWrong() {
+          this.playTone(246.94, 0.18, 'square', 0.12, 0);
+          this.playTone(185.0, 0.32, 'square', 0.14, 0.15);
+        },
+
+        playUrgentTick() {
+          this.playTone(987.77, 0.08, 'sine', 0.14, 0);
+        },
+
+        playFinish() {
+          this.playTone(523.25, 0.15, 'triangle', 0.16, 0);
+          this.playTone(659.25, 0.15, 'triangle', 0.16, 0.14);
+          this.playTone(783.99, 0.15, 'triangle', 0.16, 0.28);
+          this.playTone(1046.5, 0.45, 'triangle', 0.2, 0.42);
+        }
+      };
+
+      /* =====================================================================
+       * 3. 小三數學題庫引擎：「克和公斤」 (動態生成 + 30種生活重量實例)
+       * ===================================================================== */
+      const LIFE_WEIGHT_ITEMS = [
+        { item: '一隻狗', num: '28', unit: '公斤', distractors: ['克', '小時'], reason: '狗的體重較重，通常用「公斤 (kg)」作單位；「克」太輕，「小時」是時間單位。' },
+        { item: '一個5元硬幣', num: '13', unit: 'g', distractors: ['kg', 'cm'], reason: '硬幣很輕，適合用「g (克)」量度；「kg」太重，「cm」是長度單位。' },
+        { item: '一個蘋果', num: '180', unit: '克', distractors: ['公斤', '厘米'], reason: '一個蘋果拿在手上輕輕的，約 180「克 (g)」；「厘米」是長度單位。' },
+        { item: '一位小三學生', num: '30', unit: '公斤', distractors: ['克', '米'], reason: '小朋友的體重約幾十「公斤 (kg)」；「米」是長度單位。' },
+        { item: '一張A4紙', num: '5', unit: 'g', distractors: ['kg', 'm'], reason: '一張紙非常輕薄，約重 5「g (克)」；「m」是長度單位。' },
+        { item: '一輛私家車', num: '1500', unit: '公斤', distractors: ['克', '小時'], reason: '私家車非常重，要用「公斤 (kg)」作單位，約 1500 公斤。' },
+        { item: '一袋白米', num: '8', unit: 'kg', distractors: ['g', 'cm'], reason: '家庭裝白米較重，一般為 8「kg (公斤)」；「cm」是長度單位。' },
+        { item: '一枝鉛筆', num: '6', unit: '克', distractors: ['公斤', '厘米'], reason: '鉛筆非常輕巧，重量只有約 6「克 (g)」。' },
+        { item: '一個西瓜', num: '4', unit: '公斤', distractors: ['克', '米'], reason: '大西瓜又大又重，約重 4「公斤 (kg)」。' },
+        { item: '一隻雞蛋', num: '55', unit: 'g', distractors: ['kg', 'cm'], reason: '一隻雞蛋約重 55「g (克)」，若用公斤就太重了。' },
+        { item: '一頭大象', num: '4000', unit: '公斤', distractors: ['克', '小時'], reason: '大象是龐然大物，重達數千「公斤 (kg)」。' },
+        { item: '一本數學課本', num: '350', unit: '克', distractors: ['公斤', '厘米'], reason: '一本課本不足 1 公斤，約重 350「克 (g)」。' },
+        { item: '一個書包連課本', num: '4', unit: 'kg', distractors: ['g', 'm'], reason: '裝滿課本的書包有一定重量，約 4「kg (公斤)」。' },
+        { item: '一罐汽水', num: '330', unit: '克', distractors: ['公斤', '分鐘'], reason: '一罐汽水約重 330「克 (g)」；「分鐘」是時間單位。' },
+        { item: '一張課室書桌', num: '12', unit: '公斤', distractors: ['克', '厘米'], reason: '課室書桌結實較重，約重 12「公斤 (kg)」。' },
+        { item: '一顆士多啤梨', num: '15', unit: 'g', distractors: ['kg', 'cm'], reason: '一顆士多啤梨很輕，約重 15「g (克)」。' },
+        { item: '一隻成年貓', num: '4', unit: '公斤', distractors: ['克', '米'], reason: '成年貓抱起來約有 4「公斤 (kg)」重。' },
+        { item: '一部手提電話', num: '190', unit: 'g', distractors: ['kg', 'm'], reason: '手提電話方便攜帶，約重 190「g (克)」。' },
+        { item: '一包薯片', num: '60', unit: '克', distractors: ['公斤', '小時'], reason: '零食薯片包裝上通常標示淨重約 60「克 (g)」。' },
+        { item: '一個籃球', num: '600', unit: 'g', distractors: ['kg', 'cm'], reason: '標準籃球不足 1 公斤，約重 600「g (克)」。' },
+        { item: '一片方包', num: '30', unit: '克', distractors: ['公斤', '小時'], reason: '一片麵包很輕，約重 30「克 (g)」。' },
+        { item: '一個保齡球', num: '6', unit: 'kg', distractors: ['g', 'm'], reason: '保齡球十分沉重，約重 6「kg (公斤)」。' },
+        { item: '一張八達通卡', num: '5', unit: '克', distractors: ['公斤', '小時'], reason: '八達通卡薄薄一張，只有約 5「克 (g)」。' },
+        { item: '一箱12支裝礦泉水', num: '6', unit: '公斤', distractors: ['克', '分鐘'], reason: '整箱 12 支水合起來很重，約 6「公斤 (kg)」。' },
+        { item: '一隻倉鼠', num: '40', unit: 'g', distractors: ['kg', 'cm'], reason: '小倉鼠體型迷你，體重約 40「g (克)」。' },
+        { item: '一個新鮮菠蘿包', num: '110', unit: '克', distractors: ['公斤', '米'], reason: '一個菠蘿包輕軟可口，約重 110「克 (g)」。' },
+        { item: '一袋家庭裝洗衣粉', num: '2', unit: 'kg', distractors: ['g', 'cm'], reason: '大袋洗衣粉較重，約 2「kg (公斤)」。' },
+        { item: '一把塑膠間尺', num: '18', unit: '克', distractors: ['公斤', '厘米'], reason: '塑膠間尺很輕，約重 18「克 (g)」。' },
+        { item: '一個行李箱(裝滿衣物)', num: '15', unit: '公斤', distractors: ['克', '小時'], reason: '裝滿衣物的行李箱較重，約 15「公斤 (kg)」。' },
+        { item: '一隻羽毛球', num: '5', unit: 'g', distractors: ['kg', 'cm'], reason: '羽毛球非常輕盈，只有約 5「g (克)」。' }
+      ];
+
+      function shuffleArray(arr) {
+        const copy = arr.slice();
+        for (let i = copy.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+      }
+
+      function randInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+
+      let lastQuestionText = '';
+      let usedLifeIndices = [];
+
+      function generateQuestion() {
+        let qObj = null;
+        let attempts = 0;
+
+        while (attempts < 15) {
+          attempts++;
+          // 55% 機率出「單位換算」，45% 機率出「選擇合適單位」
+          const isConversion = Math.random() < 0.55;
+
+          if (isConversion) {
+            const subType = randInt(1, 5);
+            const unitStyle = randInt(1, 3); // 1: 公斤/克, 2: KG/G, 3: kg/g
+            const uKg = unitStyle === 1 ? '公斤' : (unitStyle === 2 ? 'KG' : 'kg');
+            const uG = unitStyle === 1 ? '克' : (unitStyle === 2 ? 'G' : 'g');
+            const sep = unitStyle === 1 ? '' : ' ';
+
+            if (subType === 1) {
+              // 類型 1A：複名數轉單名數（含十位或百位補零陷阱，例如 8KG 10G = 8010G, 4 kg 5 g = 4005 g）
+              const kg = randInt(1, 9);
+              const zeroMode = randInt(1, 3);
+              let g = 0;
+              let d1 = 0;
+              let d2 = 0;
+              let tipExtra = '';
+
+              if (zeroMode === 1) {
+                // 個位數克 (如 4 kg 5 g = 4005 g；干擾項 450 g, 45 g)
+                g = randInt(1, 9);
+                d1 = kg * 100 + g * 10;
+                d2 = kg * 10 + g;
+                tipExtra = '百位和十位沒有數字要補 0 喔！';
+              } else if (zeroMode === 2) {
+                // 整十數克 (如 8KG 10G = 8010G；干擾項 810G, 8001G)
+                g = randInt(1, 9) * 10;
+                d1 = kg * 100 + g;
+                d2 = kg * 1000 + Math.floor(g / 10);
+                tipExtra = '百位沒有數字要補 0 喔！';
+              } else {
+                // 三位數克 (如 1公斤754克 = 1754克；干擾項 175克, 10754克)
+                g = randInt(112, 985);
+                d1 = Math.floor((kg * 1000 + g) / 10);
+                d2 = kg * 10000 + g;
+                tipExtra = '把千位和後面的三位數合起來即可！';
+              }
+
+              const totalG = kg * 1000 + g;
+              qObj = {
+                category: '單位換算',
+                question: `${kg}${uKg} ${g}${uG} = ? ${uG}`,
+                correctAnswer: `${totalG}${sep}${uG}`,
+                options: shuffleArray([`${totalG}${sep}${uG}`, `${d1}${sep}${uG}`, `${d2}${sep}${uG}`]),
+                explanation: `1${uKg} = 1000${uG}，所以 ${kg}${uKg} ${g}${uG} = ${kg * 1000}${uG} + ${g}${uG} = ${totalG}${sep}${uG}，${tipExtra}`
+              };
+            } else if (subType === 2) {
+              // 類型 1B：單名數（含零）轉複名數 (如 3060克 = 3公斤60克；干擾項 3公斤6克, 30公斤60克)
+              const kg = randInt(2, 9);
+              const isTens = Math.random() < 0.65;
+              const g = isTens ? randInt(1, 9) * 10 : randInt(1, 9);
+              const totalG = kg * 1000 + g;
+              const correct = `${kg}${uKg} ${g}${uG}`;
+              const wrong1 = isTens ? `${kg}${uKg} ${Math.floor(g / 10)}${uG}` : `${kg}${uKg} ${g * 10}${uG}`;
+              const wrong2 = `${kg * 10}${uKg} ${g}${uG}`;
+
+              qObj = {
+                category: '單位換算',
+                question: `${totalG}${sep}${uG} = ?`,
+                correctAnswer: correct,
+                options: shuffleArray([correct, wrong1, wrong2]),
+                explanation: `每 1000${uG} 是 1${uKg}。${totalG}${sep}${uG} 的千位是 ${kg}（代表 ${kg}${uKg}），剩下 ${g}${uG}，所以是 ${correct}。`
+              };
+            } else if (subType === 3) {
+              // 類型 1C：整百克轉複名數 (如 6500 G = 6KG 500G；干擾項 6KG 50G, 65KG)
+              const kg = randInt(2, 9);
+              const hundreds = randInt(1, 9);
+              const g = hundreds * 100;
+              const totalG = kg * 1000 + g;
+              const correct = `${kg}${uKg} ${g}${uG}`;
+              const wrong1 = `${kg}${uKg} ${hundreds * 10}${uG}`;
+              const wrong2 = `${kg * 10 + hundreds}${uKg}`;
+
+              qObj = {
+                category: '單位換算',
+                question: `${totalG}${sep}${uG} = ?`,
+                correctAnswer: correct,
+                options: shuffleArray([correct, wrong1, wrong2]),
+                explanation: `${totalG}${sep}${uG} = ${kg * 1000}${uG} + ${g}${uG} = ${correct}，注意 ${g}${uG} 有兩個 0 喔！`
+              };
+            } else if (subType === 4) {
+              // 類型 1D：整公斤轉克
+              const kg = randInt(2, 9);
+              const totalG = kg * 1000;
+              qObj = {
+                category: '單位換算',
+                question: `${kg}${sep}${uKg} = ? ${uG}`,
+                correctAnswer: `${totalG}${sep}${uG}`,
+                options: shuffleArray([`${totalG}${sep}${uG}`, `${kg * 100}${sep}${uG}`, `${kg * 10}${sep}${uG}`]),
+                explanation: `1${uKg} 等於 1000${uG}，所以 ${kg}${uKg} 就是 ${kg} 個 1000${uG}，等於 ${totalG}${sep}${uG}。`
+              };
+            } else {
+              // 類型 1E：公斤與克加法換算 (如 2公斤 + 500克 = 2500克)
+              const kg = randInt(1, 7);
+              const g = [250, 500, 750][randInt(0, 2)];
+              const totalG = kg * 1000 + g;
+              qObj = {
+                category: '單位換算',
+                question: `${kg}${uKg} + ${g}${uG} = ? ${uG}`,
+                correctAnswer: `${totalG}${sep}${uG}`,
+                options: shuffleArray([
+                  `${totalG}${sep}${uG}`,
+                  `${kg * 100 + g}${sep}${uG}`,
+                  `${totalG + 100}${sep}${uG}`
+                ]),
+                explanation: `先把 ${kg}${uKg} 化為 ${kg * 1000}${uG}，再加上 ${g}${uG}，答案就是 ${totalG}${sep}${uG}。`
+              };
+            }
+          } else {
+            // 類型 2：生活實物選擇合適的單位
+            if (usedLifeIndices.length >= LIFE_WEIGHT_ITEMS.length) {
+              usedLifeIndices = [];
+            }
+            let idx = randInt(0, LIFE_WEIGHT_ITEMS.length - 1);
+            while (usedLifeIndices.includes(idx)) {
+              idx = (idx + 1) % LIFE_WEIGHT_ITEMS.length;
+            }
+            usedLifeIndices.push(idx);
+            const entry = LIFE_WEIGHT_ITEMS[idx];
+
+            qObj = {
+              category: '選擇合適單位',
+              question: `${entry.item}重約 ${entry.num} ( ? )`,
+              correctAnswer: entry.unit,
+              options: shuffleArray([entry.unit, entry.distractors[0], entry.distractors[1]]),
+              explanation: entry.reason
+            };
+          }
+
+          if (qObj && qObj.question !== lastQuestionText) {
+            lastQuestionText = qObj.question;
+            return qObj;
+          }
+        }
+        return qObj;
+      }
+
+      // 賽道與渲染常數 (答題後 3 秒到道具，道具後 7 秒到答案拱門，每輪共 10 秒)
+      const SEG_LEN = 50;           // 每段賽道世界長度
+      const DRAW_DISTANCE = 106;    // 向前繪製段數 (涵蓋 5300 單位視野，遠處道具與拱門清晰可見)
+      const BASE_SPEED = 500;       // 每秒一般前進世界距離
+      const BOOST_SPEED = 2200;     // 使用加速道具時的超音速衝刺速度
+      const MAX_BOOST_CHARGES = 2;  // 最多累積 2 次加速道具
+      const ITEM_OFFSET_Z = 1500;   // 答題/起跑後 3.0 秒抵達道具 (1500 / 500 = 3.0 秒)
+      const ARCH_OFFSET_Z = 3500;   // 道具後 7.0 秒抵達答案拱門 (3500 / 500 = 7.0 秒)
+      const ROUND_DISTANCE = ITEM_OFFSET_Z + ARCH_OFFSET_Z; // 每輪總長度 5000 單位 (10.0 秒)
+      const LANES = [-0.64, 0, 0.64]; // 左、中、右三車道標準化橫向座標
+
+      // 遊戲動態狀態
+      let gameState = 'START';     // 'START' | 'PLAYING' | 'GAMEOVER'
+      let score = 0;
+      let timeLeft = 60.0;
+      let totalElapsedTime = 0.0;
+      let correctCount = 0;
+      let wrongCount = 0;
+      let questionNumber = 0;
+      let lastUrgentSecond = 10;
+      let boostCharges = 0;        // 累積的加速道具次數 (0 ~ 2)
+      let isBoostingToArch = false;// 是否正在衝刺直至通過拱門
+
+      // 賽車物理與分段彎道狀態
+      let trackZ = 0;              // 賽車前進總距離
+      let roundStartZ = 0;         // 當前題目輪次的起點 Z 座標
+      let roundCurveDir = 0;       // 當前題目輪次前半段的柔和彎道方向 (-1, 0, +1)
+      let kartX = 0;               // 賽車橫向位置 (-1.05 ~ +1.05)
+      let targetKartX = 0;         // 觸控滑動或點擊目標車道位置
+      let isTouchDragging = false;
+      let hasTargetSnap = false;   // 是否正在平滑切換至點擊指定的車道
+      let pointerDownX = 0;
+      let pointerDownY = 0;
+      let dragStartX = 0;
+      let dragStartKartX = 0;
+      let steerInput = 0;          // -1 (左), 0, +1 (右)
+      let boostTimer = 0;          // 吃到好道具的加速光環剩餘秒數
+      let spinTimer = 0;           // 撞到壞道具的打滑旋轉剩餘秒數
+      let shakeTimer = 0;          // 畫面震動剩餘秒數
+
+      // 當前題目、道具波與三拱門狀態
+      let currentQuestion = null;
+      let itemWave = [];           // 當前路段的 3 個道具 (2好1壞)
+      let archways = null;         // 當前路段的 3 個答案拱門
+      let wrongAnswersLog = [];    // 錯題記錄陣列
+
+      // 特效粒子與浮動提示文字
+      let floatingTexts = [];
+      let particles = [];
+      let centerBanner = null;     // 答對/答錯或吃到道具中央大橫幅提示
+
+      // 賽道曲率計算：大幅減少彎道幅度、多加直路，且每輪後半段（接近拱門時）100% 保持筆直直路！
+      function getRoadCurveAtSegment(segIndex) {
+        if (gameState !== 'PLAYING') {
+          // 開始畫面背景展示：極柔和的直路微彎
+          return Math.sin(segIndex * 0.03) * 0.25;
+        }
+        const segWorldZ = segIndex * SEG_LEN;
+        const progressInRound = (segWorldZ - roundStartZ) / ROUND_DISTANCE;
+
+        // 每輪 0% ~ 32%（前 3.2 秒道具區）允許輕微柔和彎道，幅度僅 0.34
+        // 每輪 32% ~ 100%（道具後整整 7 秒直抵答案拱門期間）強制回正為 0（完全筆直直路），絕不干擾看題與選門！
+        if (progressInRound >= 0 && progressInRound < 0.32 && roundCurveDir !== 0) {
+          return Math.sin((progressInRound / 0.32) * Math.PI) * roundCurveDir * 0.34;
+        }
+        return 0;
+      }
+
+      /* =====================================================================
+       * 5. 生成新一輪題目、道具波 (2好1壞 + 空位) 與三答案拱門 (3秒道具 + 7秒拱門)
+       * ===================================================================== */
+      function spawnNextChallenge() {
+        questionNumber++;
+        currentQuestion = generateQuestion();
+
+        // 記錄本輪起點與柔和彎道方向（第 1 題及約 45% 輪次為全直路，其餘僅前半段有輕微彎道）
+        roundStartZ = trackZ;
+        if (questionNumber === 1 || Math.random() < 0.45) {
+          roundCurveDir = 0;
+        } else {
+          roundCurveDir = Math.random() < 0.5 ? -1 : 1;
+        }
+
+        // 更新頂部題目看板
+        qBadgeEl.textContent = `第 ${questionNumber} 題｜${currentQuestion.category}`;
+        qTextEl.textContent = currentQuestion.question;
+
+        // 1. 生成道具波：答題/起跑後精準 3.0 秒抵達 (roundStartZ + 1500)
+        // 每次 2 個好道具（1 個加時道具 + 1 個⚡加速道具）+ 1 個壞道具，分置三條車道中心，中間留有充裕空位
+        const shuffledLanes = shuffleArray(LANES);
+        const goodBonuses = [3, 5, 10];
+        const badPenalties = [3, 5];
+
+        const good1Val = goodBonuses[randInt(0, goodBonuses.length - 1)];
+        const bad1Val = badPenalties[randInt(0, badPenalties.length - 1)];
+
+        const itemZ = roundStartZ + ITEM_OFFSET_Z;
+        itemWave = [
+          {
+            z: itemZ,
+            laneX: shuffledLanes[0],
+            isGood: true,
+            visualType: Math.random() < 0.5 ? 'STAR' : 'CLOCK',
+            value: good1Val,
+            label: `+${good1Val}秒`,
+            collected: false
+          },
+          {
+            z: itemZ,
+            laneX: shuffledLanes[1],
+            isGood: true,
+            visualType: 'BOOST',
+            value: 1,
+            label: '⚡ 加速',
+            collected: false
+          },
+          {
+            z: itemZ,
+            laneX: shuffledLanes[2],
+            isGood: false,
+            visualType: Math.random() < 0.5 ? 'BANANA' : 'SHELL',
+            value: bad1Val,
+            label: `-${bad1Val}秒`,
+            collected: false
+          }
+        ];
+
+        // 2. 生成三個答案拱門：道具後精準 7.0 秒抵達 (itemZ + 3500 = roundStartZ + 5000)
+        const archZ = roundStartZ + ROUND_DISTANCE;
+        archways = {
+          z: archZ,
+          passed: false,
+          gates: [
+            { laneX: LANES[0], text: currentQuestion.options[0], color: '#2563eb' }, // 左拱門 (寶藍)
+            { laneX: LANES[1], text: currentQuestion.options[1], color: '#7c3aed' }, // 中拱門 (亮紫)
+            { laneX: LANES[2], text: currentQuestion.options[2], color: '#ea580c' }  // 右拱門 (活力橙)
+          ]
+        };
+      }
+
+      /* =====================================================================
+       * 6. 粒子與浮動文字特效輔助函式
+       * ===================================================================== */
+      function addFloatingText(text, color, subText = '') {
+        floatingTexts.push({
+          text,
+          subText,
+          color,
+          x: canvas.clientWidth * 0.5,
+          y: canvas.clientHeight * 0.62,
+          vy: -85,
+          alpha: 1.0,
+          scale: 1.25
+        });
+      }
+
+      function spawnBurstParticles(x, y, colors, count = 26) {
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+          const speed = 110 + Math.random() * 240;
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 90,
+            size: 5 + Math.random() * 6,
+            color: colors[i % colors.length],
+            life: 0.75 + Math.random() * 0.35,
+            maxLife: 1.1
+          });
+        }
+      }
+
+      /* =====================================================================
+       * 7. 遊戲流程控制 (開始、更新、結束、重置、下載)
+       * ===================================================================== */
+      function activateBoost() {
+        if (gameState !== 'PLAYING' || boostCharges <= 0 || isBoostingToArch) return;
+        boostCharges--;
+        isBoostingToArch = true;
+        sfx.playBoostActivate();
+
+        const cx = canvas.clientWidth * 0.5 + kartX * (canvas.clientWidth * 0.28);
+        const cy = canvas.clientHeight * 0.78;
+        addFloatingText('🚀 渦輪全速衝刺！', '#38bdf8', '直衝通過答案拱門！');
+        spawnBurstParticles(cx, cy, ['#38bdf8', '#fde047', '#ffffff', '#f97316'], 30);
+        updateHudUI();
+      }
+
+      function updateHudUI() {
+        hudScoreEl.textContent = score;
+        hudBoostEl.textContent = boostCharges;
+        hudCorrectEl.textContent = correctCount;
+        hudCorrectMobileEl.textContent = correctCount;
+        hudTotalEl.textContent = correctCount + wrongCount;
+
+        // 更新頂部加速計數器與底部加速觸發按鈕狀態
+        if (boostCharges > 0) {
+          hudBoostBoxEl.className = 'flex items-center gap-1 bg-amber-300 border-2 border-amber-500 text-slate-900 font-black px-2 py-1 rounded-xl text-xs sm:text-sm shadow transition-colors';
+        } else {
+          hudBoostBoxEl.className = 'flex items-center gap-1 bg-sky-100 border border-sky-300 text-sky-900 font-black px-2 py-1 rounded-xl text-xs sm:text-sm shadow-inner transition-colors';
+        }
+
+        if (isBoostingToArch) {
+          btnBoostEl.className = 'pointer-events-auto kart-btn px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 border-2 border-yellow-300 text-white text-xs sm:text-base font-black shadow-xl flex items-center justify-center gap-1.5 transition-all';
+          btnBoostTextEl.textContent = '🔥 衝刺至拱門中...';
+        } else if (boostCharges > 0) {
+          btnBoostEl.className = 'pointer-events-auto kart-btn boost-ready-btn px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-sky-500 border-2 border-white text-white text-xs sm:text-base font-black shadow-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all';
+          btnBoostTextEl.textContent = `🚀 輕觸加速 (${boostCharges}/2)`;
+        } else {
+          btnBoostEl.className = 'pointer-events-auto kart-btn px-3.5 py-3 sm:px-5 sm:py-3.5 rounded-2xl bg-slate-900/60 backdrop-blur-md border-2 border-white/35 text-white/75 text-xs sm:text-base font-black shadow-xl flex items-center justify-center gap-1.5 transition-all';
+          btnBoostTextEl.textContent = '⚡ 加速道具 0/2';
+        }
+
+        const displaySec = Math.max(0, Math.ceil(timeLeft));
+        hudTimerEl.textContent = displaySec;
+
+        // 剩餘時間少於 10 秒警告樣式與急促提示音
+        if (gameState === 'PLAYING' && timeLeft > 0 && timeLeft < 10) {
+          timerBoxEl.classList.add('timer-danger');
+          if (displaySec < lastUrgentSecond) {
+            lastUrgentSecond = displaySec;
+            sfx.playUrgentTick();
+          }
+        } else {
+          timerBoxEl.classList.remove('timer-danger');
+          lastUrgentSecond = 10;
+        }
+      }
+
+      function startGame() {
+        sfx.init();
+        sfx.playStart();
+
+        gameState = 'PLAYING';
+        score = 0;
+        timeLeft = 60.0;
+        totalElapsedTime = 0.0;
+        correctCount = 0;
+        wrongCount = 0;
+        questionNumber = 0;
+        lastUrgentSecond = 10;
+        boostCharges = 0;
+        isBoostingToArch = false;
+
+        trackZ = 0;
+        roundStartZ = 0;
+        roundCurveDir = 0;
+        kartX = 0;
+        targetKartX = 0;
+        isTouchDragging = false;
+        hasTargetSnap = false;
+        steerInput = 0;
+        boostTimer = 0;
+        spinTimer = 0;
+        shakeTimer = 0;
+
+        wrongAnswersLog = [];
+        floatingTexts = [];
+        particles = [];
+        centerBanner = null;
+        usedLifeIndices = [];
+
+        startModalEl.classList.add('hidden');
+        resultModalEl.classList.add('hidden');
+        questionBannerEl.classList.remove('hidden');
+        touchControlsEl.classList.remove('hidden');
+
+        spawnNextChallenge();
+        updateHudUI();
+      }
+
+      function endGame() {
+        gameState = 'GAMEOVER';
+        isBoostingToArch = false;
+        timeLeft = 0;
+        updateHudUI();
+        timerBoxEl.classList.remove('timer-danger');
+        sfx.playFinish();
+
+        questionBannerEl.classList.add('hidden');
+        touchControlsEl.classList.add('hidden');
+
+        // 填入結算數據
+        const totalAnswered = correctCount + wrongCount;
+        const accuracyPct = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
+
+        document.getElementById('resScore').textContent = score;
+        document.getElementById('resTotalTime').textContent = totalElapsedTime.toFixed(1);
+        document.getElementById('resCorrect').textContent = correctCount;
+        document.getElementById('resWrong').textContent = wrongCount;
+        document.getElementById('resAccuracy').textContent = `${accuracyPct}%`;
+
+        // 稱號評級
+        const rankBadgeEl = document.getElementById('rankBadge');
+        if (score >= 1000 && wrongCount === 0) {
+          rankBadgeEl.textContent = '👑 滿分極速傳奇車神！';
+        } else if (score >= 700) {
+          rankBadgeEl.textContent = '🏆 卓越數學小車神！';
+        } else if (score >= 400) {
+          rankBadgeEl.textContent = '🌟 優秀賽車手！';
+        } else {
+          rankBadgeEl.textContent = '💪 潛力小車手，繼續加油！';
+        }
+
+        // 生成錯題記錄列表
+        const container = document.getElementById('wrongListContainer');
+        container.innerHTML = '';
+
+        if (wrongAnswersLog.length === 0) {
+          const emptyMsg = document.createElement('div');
+          emptyMsg.className = 'bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center text-emerald-800 font-bold text-sm sm:text-base';
+          emptyMsg.innerHTML = correctCount > 0
+            ? '🎉 太厲害了！你答對了所有題目，完全沒有錯題！'
+            : '⏱️ 時間到！下次試著衝過更多正確答案拱門吧！';
+          container.appendChild(emptyMsg);
+        } else {
+          wrongAnswersLog.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'bg-white border-2 border-rose-200 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-1.5';
+            card.innerHTML = `
+              <div class="flex items-start justify-between gap-2">
+                <span class="font-black text-slate-900 text-sm sm:text-base">
+                  ${index + 1}. ${item.question}
+                </span>
+              </div>
+              <div class="flex flex-wrap gap-2 text-xs sm:text-sm font-bold">
+                <span class="px-2.5 py-0.5 rounded-lg bg-rose-100 text-rose-700 border border-rose-300">
+                  ❌ 你的選擇：${item.userAnswer}
+                </span>
+                <span class="px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  ✅ 正確答案：${item.correctAnswer}
+                </span>
+              </div>
+              <div class="text-xs sm:text-sm text-slate-600 bg-amber-50/80 border border-amber-200 rounded-lg px-2.5 py-1.5 leading-relaxed">
+                💡 <strong>解題小貼士：</strong>${item.explanation}
+              </div>
+            `;
+            container.appendChild(card);
+          });
+        }
+
+        resultModalEl.classList.remove('hidden');
+      }
+
+      /* =====================================================================
+       * 8. 主更新循環 (Physics, Collisions & Timers)
+       * ===================================================================== */
+      function updateGame(dt) {
+        if (gameState !== 'PLAYING') {
+          // 開始畫面背景自動緩慢巡航展示賽道
+          trackZ += 160 * dt;
+          return;
+        }
+
+        // 累加實際遊戲時間與扣除倒數計時
+        totalElapsedTime += dt;
+        timeLeft -= dt;
+
+        if (boostTimer > 0) boostTimer = Math.max(0, boostTimer - dt);
+        if (spinTimer > 0) spinTimer = Math.max(0, spinTimer - dt);
+        if (shakeTimer > 0) shakeTimer = Math.max(0, shakeTimer - dt);
+
+        if (centerBanner) {
+          centerBanner.life -= dt;
+          if (centerBanner.life <= 0) centerBanner = null;
+        }
+        // 加速狀態時以超音速衝刺直至通過拱門，否則維持每輪 10 秒穩定節奏
+        const currentSpeed = isBoostingToArch ? BOOST_SPEED : BASE_SPEED;
+        trackZ += currentSpeed * dt;
+
+        // 賽車左右移動控制 (支援鍵盤/觸控按鈕連續移動、手指拖曳，以及點擊左/中/右車道平滑切換)
+        const moveSpeed = 2.45;
+        if (steerInput !== 0) {
+          hasTargetSnap = false;
+          kartX += steerInput * moveSpeed * dt;
+          targetKartX = kartX;
+        } else if (isTouchDragging) {
+          hasTargetSnap = false;
+          const diff = targetKartX - kartX;
+          kartX += diff * Math.min(1, dt * 18);
+        } else if (hasTargetSnap) {
+          const diff = targetKartX - kartX;
+          if (Math.abs(diff) < 0.01) {
+            kartX = targetKartX;
+            hasTargetSnap = false;
+          } else {
+            kartX += diff * Math.min(1, dt * 14);
+          }
+        }
+
+        // 限制賽車在賽道路肩範圍內 (-0.98 ~ +0.98)
+        kartX = Math.max(-0.98, Math.min(0.98, kartX));
+
+        // 檢測道具碰撞 (道具碰撞半徑 0.16，三車道間距 0.64，中間留有充裕空位可穿過)
+        for (const item of itemWave) {
+          if (!item.collected && Math.abs(trackZ - item.z) < 48) {
+            if (Math.abs(kartX - item.laneX) < 0.16) {
+              item.collected = true;
+              const cx = canvas.clientWidth * 0.5 + kartX * (canvas.clientWidth * 0.28);
+              const cy = canvas.clientHeight * 0.78;
+
+              if (item.isGood) {
+                if (item.visualType === 'BOOST') {
+                  boostTimer = 1.0;
+                  if (boostCharges < MAX_BOOST_CHARGES) {
+                    boostCharges++;
+                    sfx.playBoostCollect();
+                    addFloatingText(`⚡ 獲得加速道具 (${boostCharges}/2)！`, '#38bdf8', '輕觸屏幕或按 ↑ 向前加速！');
+                  } else {
+                    timeLeft += 3;
+                    sfx.playGoodItem();
+                    addFloatingText('⚡ 加速已滿 (2/2)！', '#facc15', '額外獎勵 +3秒！');
+                  }
+                  spawnBurstParticles(cx, cy, ['#38bdf8', '#fde047', '#ffffff', '#60a5fa'], 26);
+                } else {
+                  timeLeft += item.value;
+                  boostTimer = 1.3;
+                  sfx.playGoodItem();
+                  addFloatingText(`⏰ 時間 +${item.value}秒！`, '#10b981', '太棒了！');
+                  spawnBurstParticles(cx, cy, ['#fde047', '#34d399', '#60a5fa', '#ffffff'], 24);
+                }
+              } else {
+                timeLeft = Math.max(0, timeLeft - item.value);
+                spinTimer = 0.75;
+                shakeTimer = 0.4;
+                sfx.playBadItem();
+                addFloatingText(`💥 撞到障礙 -${item.value}秒！`, '#ef4444', '小心閃避！');
+                spawnBurstParticles(cx, cy, ['#ef4444', '#facc15', '#f97316'], 20);
+              }
+            }
+          }
+        }
+
+        // 檢測是否穿過三答案拱門
+        if (archways && !archways.passed && trackZ >= archways.z) {
+          archways.passed = true;
+          // 每次加速持續到通過拱門後自動結束
+          isBoostingToArch = false;
+
+          // 判定賽車所在車道：左 (<-0.21)、中 (-0.21~0.21)、右 (>0.21)
+          let chosenIndex = 1;
+          if (kartX < -0.21) chosenIndex = 0;
+          else if (kartX > 0.21) chosenIndex = 2;
+
+          const chosenOption = archways.gates[chosenIndex].text;
+          const isCorrect = chosenOption === currentQuestion.correctAnswer;
+          const cx = canvas.clientWidth * 0.5;
+          const cy = canvas.clientHeight * 0.48;
+
+          if (isCorrect) {
+            score += 100;
+            correctCount++;
+            sfx.playCorrect();
+            centerBanner = {
+              text: '⭕ 答對了！+100分',
+              bg: 'rgba(16, 185, 129, 0.95)',
+              border: '#fde047',
+              life: 1.15
+            };
+            spawnBurstParticles(cx, cy, ['#fde047', '#34d399', '#38bdf8', '#f472b6'], 36);
+          } else {
+            wrongCount++;
+            timeLeft = Math.max(0, timeLeft - 5);
+            shakeTimer = 0.45;
+            sfx.playWrong();
+            centerBanner = {
+              text: '❌ 答錯了！-5秒',
+              subText: `正確答案：${currentQuestion.correctAnswer}`,
+              bg: 'rgba(225, 29, 72, 0.95)',
+              border: '#fecdd3',
+              life: 1.35
+            };
+            // 記錄至錯題本
+            wrongAnswersLog.push({
+              question: currentQuestion.question,
+              userAnswer: chosenOption,
+              correctAnswer: currentQuestion.correctAnswer,
+              explanation: currentQuestion.explanation
+            });
+          }
+
+          // 若時間尚未歸零，立即準備下一題路段
+          if (timeLeft > 0) {
+            spawnNextChallenge();
+          }
+        }
+
+        // 更新浮動文字與粒子
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+          const ft = floatingTexts[i];
+          ft.y += ft.vy * dt;
+          ft.alpha -= dt * 0.95;
+          if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.vy += 360 * dt; // 重力
+          p.life -= dt;
+          if (p.life <= 0) particles.splice(i, 1);
+        }
+
+        // 檢查時間是否結束
+        if (timeLeft <= 0) {
+          endGame();
+          return;
+        }
+
+        updateHudUI();
+      }
+
+      /* =====================================================================
+       * 9. 偽 3D 賽道、道具、拱門與賽車繪製引擎
+       * ===================================================================== */
+      function drawRoundedRect(ctx, x, y, w, h, r) {
+        const radius = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.arcTo(x + w, y, x + w, y + h, radius);
+        ctx.arcTo(x + w, y + h, x, y + h, radius);
+        ctx.arcTo(x, y + h, x, y, radius);
+        ctx.arcTo(x, y, x + w, y, radius);
+        ctx.closePath();
+      }
+
+      function renderGame() {
+        const W = canvas.clientWidth;
+        const H = canvas.clientHeight;
+        if (W === 0 || H === 0) return;
+
+        ctx.save();
+
+        // 碰撞時的輕微畫面震動效果
+        if (shakeTimer > 0) {
+          const mag = shakeTimer * 18;
+          ctx.translate((Math.random() - 0.5) * mag, (Math.random() - 0.5) * mag);
+        }
+
+        const horizonY = H * 0.37; // 地平線高度
+        const baseSegIndex = Math.floor(trackZ / SEG_LEN);
+        const segPercent = (trackZ % SEG_LEN) / SEG_LEN;
+        const currentCurve = getRoadCurveAtSegment(baseSegIndex);
+
+        // 1. 繪製 Mario Kart 風格晴朗藍天漸層
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+        skyGrad.addColorStop(0, '#0284c7');
+        skyGrad.addColorStop(0.6, '#38bdf8');
+        skyGrad.addColorStop(1, '#bae6fd');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, W, horizonY + 2);
+
+        // 2. 繪製隨彎道視差移動的蓬鬆白雲與遠山
+        const parallaxShift = -currentCurve * W * 0.08 - (trackZ * 0.015) % W;
+        drawClouds(W, horizonY, parallaxShift);
+        drawMountains(W, horizonY, -currentCurve * W * 0.12);
+
+        // 3. 預先計算從近到遠的偽 3D 賽道段投影座標
+        const segments = [];
+        let xOffset = 0;
+        let dx = 0;
+        const baseRoadHalfW = Math.min(W * 0.44, 420); // 近處賽道半寬
+
+        for (let n = 0; n < DRAW_DISTANCE; n++) {
+          const segIdx = baseSegIndex + n;
+          const curve = getRoadCurveAtSegment(segIdx);
+          const tNear = (n - segPercent) / DRAW_DISTANCE;
+          const tFar = (n + 1 - segPercent) / DRAW_DISTANCE;
+
+          // 透視深度映射 (近大遠小)
+          const pNear = Math.max(0.001, tNear);
+          const pFar = Math.max(0.002, tFar);
+
+          const yNear = H - Math.pow(pNear, 0.62) * (H - horizonY);
+          const yFar = H - Math.pow(pFar, 0.62) * (H - horizonY);
+
+          const scaleNear = Math.max(0.04, 1 - Math.pow(pNear, 0.62) * 0.94);
+          const scaleFar = Math.max(0.035, 1 - Math.pow(pFar, 0.62) * 0.94);
+
+          const xNear = W * 0.5 + xOffset;
+          dx += curve * (W * 0.00135);
+          xOffset += dx;
+          const xFar = W * 0.5 + xOffset;
+
+          segments.push({
+            n,
+            segIdx,
+            yNear,
+            yFar,
+            xNear,
+            xFar,
+            wNear: baseRoadHalfW * scaleNear,
+            wFar: baseRoadHalfW * scaleFar,
+            scaleNear,
+            scaleFar
+          });
+        }
+
+        // 4. 由遠到近繪製草地、紅白路肩、三車道柏油路面與車道分隔線
+        for (let i = segments.length - 1; i >= 0; i--) {
+          const s = segments[i];
+          const isAlt = Math.floor(s.segIdx / 2) % 2 === 0;
+
+          // 兩側綠草地
+          ctx.fillStyle = isAlt ? '#22c55e' : '#16a34a';
+          ctx.fillRect(0, s.yFar, W, s.yNear - s.yFar + 1.5);
+
+          // 紅白相間路肩 (Rumble Strips)
+          const curbNear = s.wNear * 1.13;
+          const curbFar = s.wFar * 1.13;
+          ctx.fillStyle = isAlt ? '#ef4444' : '#ffffff';
+          drawTrapezoid(ctx, s.xFar, s.yFar, curbFar, s.xNear, s.yNear, curbNear);
+
+          // 柏油賽道主體
+          ctx.fillStyle = isAlt ? '#334155' : '#3f4e64';
+          drawTrapezoid(ctx, s.xFar, s.yFar, s.wFar, s.xNear, s.yNear, s.wNear);
+
+          // 三車道分隔虛線 (位於 x = -0.32 與 x = +0.32，同時標示道具間的安全空位通道！)
+          if (s.segIdx % 3 !== 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
+            const laneDividers = [-0.32, 0.32];
+            for (const ld of laneDividers) {
+              const lineHalfWFar = Math.max(1, s.wFar * 0.018);
+              const lineHalfWNear = Math.max(1.5, s.wNear * 0.018);
+              drawTrapezoid(
+                ctx,
+                s.xFar + ld * s.wFar,
+                s.yFar,
+                lineHalfWFar,
+                s.xNear + ld * s.wNear,
+                s.yNear,
+                lineHalfWNear
+              );
+            }
+          }
+
+          // 賽道邊緣白線
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+          const edgeFar = Math.max(1, s.wFar * 0.02);
+          const edgeNear = Math.max(1.5, s.wNear * 0.02);
+          drawTrapezoid(ctx, s.xFar - s.wFar * 0.96, s.yFar, edgeFar, s.xNear - s.wNear * 0.96, s.yNear, edgeNear);
+          drawTrapezoid(ctx, s.xFar + s.wFar * 0.96, s.yFar, edgeFar, s.xNear + s.wNear * 0.96, s.yNear, edgeNear);
+        }
+
+        // 輔助函式：根據世界 Z 座標取得賽道投影位置與縮放比例
+        function projectZ(worldZ) {
+          const relZ = worldZ - trackZ;
+          const nFloat = relZ / SEG_LEN + segPercent;
+          if (nFloat < 0.2 || nFloat >= DRAW_DISTANCE - 1) return null;
+          const idx = Math.floor(nFloat);
+          const frac = nFloat - idx;
+          const s = segments[idx];
+          if (!s) return null;
+          return {
+            roadCenterX: s.xNear + (s.xFar - s.xNear) * frac,
+            groundY: s.yNear + (s.yFar - s.yNear) * frac,
+            roadHalfW: s.wNear + (s.wFar - s.wNear) * frac,
+            scale: s.scaleNear + (s.scaleFar - s.scaleNear) * frac
+          };
+        }
+
+        // 5. 繪製遠處的三個答案拱門 (先畫遠處拱門，符合景深遮擋順序)
+        if (archways && !archways.passed) {
+          const proj = projectZ(archways.z);
+          if (proj) {
+            drawThreeArchways(ctx, proj, archways.gates, kartX);
+          }
+        }
+
+        // 6. 繪製賽道道具波 (2 個好道具 + 1 個壞道具，各自位於獨立車道，中間留有空位)
+        if (itemWave && itemWave.length > 0) {
+          const proj = projectZ(itemWave[0].z);
+          if (proj) {
+            for (const item of itemWave) {
+              if (!item.collected) {
+                const ix = proj.roadCenterX + item.laneX * proj.roadHalfW;
+                drawTrackItem(ctx, ix, proj.groundY, proj.scale, item);
+              }
+            }
+          }
+        }
+
+        // 7. 繪製主角玩家賽車 (位於畫面下方)
+        const playerRoadHalfW = segments[0] ? segments[0].wNear : baseRoadHalfW;
+        const playerScreenX = W * 0.5 + kartX * playerRoadHalfW;
+        const playerScreenY = H * 0.87;
+        drawPlayerKart(ctx, playerScreenX, playerScreenY, Math.min(1.15, Math.max(0.72, W / 650)));
+
+        // 7.5 加速衝刺至拱門時的屏幕兩側極速速度線特效
+        if (isBoostingToArch) {
+          drawBoostSpeedLines(ctx, W, H);
+        }
+
+        // 8. 繪製粒子與浮動加減秒文字
+        for (const p of particles) {
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        for (const ft of floatingTexts) {
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, ft.alpha);
+          ctx.font = `900 ${Math.round(Math.min(38, W * 0.065))}px "Noto Sans TC", sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.lineWidth = 6;
+          ctx.strokeStyle = '#0f172a';
+          ctx.strokeText(ft.text, ft.x, ft.y);
+          ctx.fillStyle = ft.color;
+          ctx.fillText(ft.text, ft.x, ft.y);
+          if (ft.subText) {
+            ctx.font = `800 ${Math.round(Math.min(18, W * 0.035))}px "Noto Sans TC", sans-serif`;
+            ctx.lineWidth = 4;
+            ctx.strokeText(ft.subText, ft.x, ft.y + 28);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(ft.subText, ft.x, ft.y + 28);
+          }
+          ctx.restore();
+        }
+
+        // 9. 繪製答對/答錯中央提示橫幅
+        if (centerBanner) {
+          ctx.save();
+          const bannerW = Math.min(W * 0.86, 440);
+          const bannerH = centerBanner.subText ? 82 : 58;
+          const bx = (W - bannerW) / 2;
+          const by = H * 0.36;
+
+          ctx.fillStyle = centerBanner.bg;
+          ctx.strokeStyle = centerBanner.border;
+          ctx.lineWidth = 4;
+          drawRoundedRect(ctx, bx, by, bannerW, bannerH, 18);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = `900 ${Math.round(Math.min(26, W * 0.052))}px "Noto Sans TC", sans-serif`;
+          ctx.fillText(centerBanner.text, W / 2, by + (centerBanner.subText ? 28 : bannerH / 2));
+
+          if (centerBanner.subText) {
+            ctx.fillStyle = '#fef08a';
+            ctx.font = `800 ${Math.round(Math.min(17, W * 0.036))}px "Noto Sans TC", sans-serif`;
+            ctx.fillText(centerBanner.subText, W / 2, by + 58);
+          }
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      function drawTrapezoid(ctx, x1, y1, w1, x2, y2, w2) {
+        ctx.beginPath();
+        ctx.moveTo(x1 - w1, y1);
+        ctx.lineTo(x1 + w1, y1);
+        ctx.lineTo(x2 + w2, y2);
+        ctx.lineTo(x2 - w2, y2);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      function drawClouds(W, horizonY, shiftX) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+        const cloudPositions = [0.12, 0.38, 0.65, 0.90];
+        cloudPositions.forEach((ratio, idx) => {
+          const cx = ((ratio * W + shiftX) % (W + 180) + (W + 180)) % (W + 180) - 90;
+          const cy = horizonY * (0.28 + (idx % 2) * 0.16);
+          const r = Math.min(34, W * 0.045);
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.arc(cx + r * 0.85, cy - r * 0.25, r * 0.8, 0, Math.PI * 2);
+          ctx.arc(cx + r * 1.65, cy, r * 0.9, 0, Math.PI * 2);
+          ctx.arc(cx - r * 0.8, cy + r * 0.1, r * 0.72, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      function drawMountains(W, horizonY, shiftX) {
+        // 遠山與賽道小旗幟剪影
+        ctx.fillStyle = '#0ea5e9';
+        ctx.beginPath();
+        ctx.moveTo(0, horizonY);
+        const peaks = 6;
+        for (let i = 0; i <= peaks; i++) {
+          const px = (i / peaks) * W + (shiftX % (W / peaks));
+          const py = horizonY - (i % 2 === 0 ? horizonY * 0.26 : horizonY * 0.14);
+          ctx.lineTo(px, py);
+        }
+        ctx.lineTo(W, horizonY);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      function drawTrackItem(ctx, x, groundY, scale, item) {
+        if (scale < 0.04) return;
+        ctx.save();
+
+        const bob = Math.sin(performance.now() * 0.008 + item.laneX * 5) * 6 * scale;
+        const radius = Math.max(8, 28 * scale);
+        const cy = groundY - radius - 8 * scale + bob;
+
+        // 地面投影陰影
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+        ctx.beginPath();
+        ctx.ellipse(x, groundY - 2 * scale, radius * 0.85, radius * 0.28, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (item.isGood) {
+          // 好道具外圍柔和光暈
+          ctx.fillStyle = item.visualType === 'BOOST'
+            ? 'rgba(56, 189, 248, 0.32)'
+            : 'rgba(250, 204, 21, 0.30)';
+          ctx.beginPath();
+          ctx.arc(x, cy, radius * 1.25, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (item.visualType === 'BOOST') {
+            // 寶藍與金黃雙色渦輪閃電加速道具
+            ctx.fillStyle = '#0284c7';
+            ctx.strokeStyle = '#fde047';
+            ctx.lineWidth = Math.max(2, 3.5 * scale);
+            ctx.beginPath();
+            ctx.arc(x, cy, radius * 0.92, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // 中央發光閃電圖示
+            ctx.fillStyle = '#fde047';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = Math.max(1, 1.8 * scale);
+            ctx.beginPath();
+            ctx.moveTo(x + radius * 0.14, cy - radius * 0.62);
+            ctx.lineTo(x - radius * 0.36, cy + radius * 0.06);
+            ctx.lineTo(x - radius * 0.02, cy + radius * 0.06);
+            ctx.lineTo(x - radius * 0.16, cy + radius * 0.62);
+            ctx.lineTo(x + radius * 0.38, cy - radius * 0.08);
+            ctx.lineTo(x + radius * 0.04, cy - radius * 0.08);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          } else if (item.visualType === 'STAR') {
+            // 發光金色五角星
+            drawStarShape(ctx, x, cy, 5, radius * 0.95, radius * 0.45, '#facc15', '#b45309');
+            // 可愛眼睛
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(x - radius * 0.18, cy - radius * 0.05, Math.max(1.5, radius * 0.09), 0, Math.PI * 2);
+            ctx.arc(x + radius * 0.18, cy - radius * 0.05, Math.max(1.5, radius * 0.09), 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // 綠色渦輪時鐘
+            ctx.fillStyle = '#10b981';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = Math.max(1.5, 3 * scale);
+            ctx.beginPath();
+            ctx.arc(x, cy, radius * 0.88, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ecfdf5';
+            ctx.beginPath();
+            ctx.arc(x, cy, radius * 0.65, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 時針與分針
+            ctx.strokeStyle = '#047857';
+            ctx.lineWidth = Math.max(1.5, 3 * scale);
+            ctx.beginPath();
+            ctx.moveTo(x, cy);
+            ctx.lineTo(x, cy - radius * 0.45);
+            ctx.moveTo(x, cy);
+            ctx.lineTo(x + radius * 0.35, cy);
+            ctx.stroke();
+          }
+        } else {
+          // 壞道具警示光圈
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.28)';
+          ctx.beginPath();
+          ctx.arc(x, cy, radius * 1.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (item.visualType === 'BANANA') {
+            // 黃色香蕉皮
+            ctx.fillStyle = '#facc15';
+            ctx.strokeStyle = '#854d0e';
+            ctx.lineWidth = Math.max(1.5, 2.5 * scale);
+            ctx.beginPath();
+            ctx.moveTo(x, cy - radius * 0.75);
+            ctx.quadraticCurveTo(x - radius * 0.95, cy + radius * 0.2, x - radius * 0.65, cy + radius * 0.75);
+            ctx.quadraticCurveTo(x - radius * 0.2, cy + radius * 0.2, x, cy + radius * 0.3);
+            ctx.quadraticCurveTo(x + radius * 0.2, cy + radius * 0.2, x + radius * 0.65, cy + radius * 0.75);
+            ctx.quadraticCurveTo(x + radius * 0.95, cy + radius * 0.2, x, cy - radius * 0.75);
+            ctx.fill();
+            ctx.stroke();
+          } else {
+            // 紅色帶刺龜殼 / 炸彈障礙
+            ctx.fillStyle = '#dc2626';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = Math.max(1.5, 3 * scale);
+            ctx.beginPath();
+            ctx.arc(x, cy + radius * 0.08, radius * 0.82, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // 白色尖刺裝飾
+            ctx.fillStyle = '#ffffff';
+            for (let a = -0.7; a <= 0.7; a += 0.7) {
+              const sx = x + Math.sin(a) * radius * 0.72;
+              const sy = cy + radius * 0.08 - Math.cos(a) * radius * 0.72;
+              ctx.beginPath();
+              ctx.arc(sx, sy, Math.max(1.5, radius * 0.14), 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+
+        // 道具上方清楚標示加減秒數或加速標籤 (+3秒 / +5秒 / +10秒 / ⚡ 加速 / -3秒 / -5秒)
+        if (scale > 0.14) {
+          const fontSize = Math.max(10, Math.round(20 * scale));
+          ctx.font = `900 ${fontSize}px "Noto Sans TC", sans-serif`;
+          const textW = ctx.measureText(item.label).width + 14 * scale;
+          const badgeH = fontSize + 8 * scale;
+          const badgeY = cy - radius - badgeH - 4 * scale;
+
+          ctx.fillStyle = item.visualType === 'BOOST' ? '#0284c7' : (item.isGood ? '#059669' : '#dc2626');
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = Math.max(1.2, 2.2 * scale);
+          drawRoundedRect(ctx, x - textW / 2, badgeY, textW, badgeH, badgeH / 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(item.label, x, badgeY + badgeH / 2 + 1);
+        }
+
+        ctx.restore();
+      }
+
+      function drawBoostSpeedLines(ctx, W, H) {
+        ctx.save();
+        const now = performance.now() * 0.025;
+        ctx.strokeStyle = 'rgba(186, 230, 253, 0.55)';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 16; i++) {
+          const isLeft = i % 2 === 0;
+          const edgeOffset = ((i * 29) % 110) + 10;
+          const lx = isLeft ? edgeOffset : W - edgeOffset;
+          const startY = ((now * 28 + i * 97) % (H + 160)) - 120;
+          const len = 70 + (i % 4) * 35;
+          ctx.beginPath();
+          ctx.moveTo(lx, startY);
+          ctx.lineTo(lx + (isLeft ? -6 : 6), startY + len);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawStarShape(ctx, cx, cy, spikes, outerR, innerR, fillColor, strokeColor) {
+        let rot = (Math.PI / 2) * 3;
+        const step = Math.PI / spikes;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - outerR);
+        for (let i = 0; i < spikes; i++) {
+          ctx.lineTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR);
+          rot += step;
+          ctx.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR);
+          rot += step;
+        }
+        ctx.closePath();
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
+
+      /* 繪製橫跨左、中、右三條車道的立體賽車答案拱門 (特大高對比看板與超大清晰字體) */
+      function drawThreeArchways(ctx, proj, gates, playerKartX) {
+        const { roadCenterX, groundY, roadHalfW, scale } = proj;
+        if (scale < 0.04) return;
+
+        // 透視可讀性增強係數：確保拱門在遠處時看板與文字就足夠大而清晰
+        const readScale = Math.pow(scale, 0.78);
+
+        // 判斷玩家目前瞄準哪一條車道的拱門，給予高亮提示框
+        let aimedIdx = 1;
+        if (playerKartX < -0.21) aimedIdx = 0;
+        else if (playerKartX > 0.21) aimedIdx = 2;
+
+        const gateHalfW = roadHalfW * 0.31;
+        const pillarW = Math.max(4, 13 * scale);
+        const archHeight = Math.max(28, 135 * scale);
+        const boardH = Math.max(26, 86 * readScale);
+
+        gates.forEach((gate, idx) => {
+          const gx = roadCenterX + gate.laneX * roadHalfW;
+          const isAimed = idx === aimedIdx;
+
+          ctx.save();
+
+          // 車道地面瞄準光帶
+          if (isAimed) {
+            ctx.fillStyle = 'rgba(253, 224, 71, 0.42)';
+            ctx.fillRect(gx - gateHalfW, groundY - 8 * scale, gateHalfW * 2, 10 * scale);
+          }
+
+          // 左右兩根紅白相間拱門柱
+          const leftPillarX = gx - gateHalfW;
+          const rightPillarX = gx + gateHalfW - pillarW;
+          const topY = groundY - archHeight;
+
+          ctx.fillStyle = '#f8fafc';
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = Math.max(1.2, 2.2 * scale);
+
+          // 左柱
+          ctx.fillRect(leftPillarX, topY, pillarW, archHeight);
+          ctx.strokeRect(leftPillarX, topY, pillarW, archHeight);
+          // 右柱
+          ctx.fillRect(rightPillarX, topY, pillarW, archHeight);
+          ctx.strokeRect(rightPillarX, topY, pillarW, archHeight);
+
+          // 柱身彩色條紋裝飾
+          ctx.fillStyle = gate.color;
+          ctx.fillRect(leftPillarX, topY + archHeight * 0.32, pillarW, archHeight * 0.28);
+          ctx.fillRect(rightPillarX, topY + archHeight * 0.32, pillarW, archHeight * 0.28);
+
+          // 頂部特大型高對比白色/米黃色選項看板 (隨透視平滑放大且三塊看板永不重疊)
+          const boardW = gateHalfW * 2.02;
+          const boardX = gx - boardW / 2;
+          const boardY = topY - boardH * 0.68;
+
+          // 看板陰影增強立體感
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.38)';
+          drawRoundedRect(ctx, boardX + 2, boardY + 4 * readScale, boardW, boardH, Math.max(6, 14 * readScale));
+          ctx.fill();
+
+          // 高對比米白底色 + 粗彩色/金黃外框
+          ctx.fillStyle = isAimed ? '#fef9c3' : '#ffffff';
+          ctx.strokeStyle = isAimed ? '#f59e0b' : gate.color;
+          ctx.lineWidth = Math.max(2.5, (isAimed ? 6.5 : 4.5) * readScale);
+          drawRoundedRect(ctx, boardX, boardY, boardW, boardH, Math.max(6, 14 * readScale));
+          ctx.fill();
+          ctx.stroke();
+
+          // 選項特大粗體文字 (深色高對比字體 + 自動縮放防溢出)
+          let fontSize = Math.max(15, Math.round(42 * readScale));
+          ctx.font = `900 ${fontSize}px "Noto Sans TC", "Fredoka", sans-serif`;
+          const maxTextW = boardW * 0.90;
+          const measuredW = ctx.measureText(gate.text).width;
+          if (measuredW > maxTextW) {
+            fontSize = Math.max(12, Math.floor(fontSize * (maxTextW / measuredW)));
+            ctx.font = `900 ${fontSize}px "Noto Sans TC", "Fredoka", sans-serif`;
+          }
+
+          ctx.fillStyle = '#0f172a';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(gate.text, gx, boardY + boardH / 2 + 1);
+
+          ctx.restore();
+        });
+      }
+
+      /* 繪製 Mario Kart 風格卡通賽車 (含轉彎傾斜、加速火焰、打滑旋轉) */
+      function drawPlayerKart(ctx, x, y, scale) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+
+        // 壞道具打滑 360 度旋轉或轉彎傾斜
+        if (spinTimer > 0) {
+          ctx.rotate(spinTimer * Math.PI * 6);
+        } else {
+          const tiltAngle = steerInput * 0.14 + (targetKartX - kartX) * 0.25;
+          ctx.rotate(Math.max(-0.22, Math.min(0.22, tiltAngle)));
+        }
+
+        // 車底陰影
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
+        ctx.beginPath();
+        ctx.ellipse(0, 18, 52, 16, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 吃到好道具或渦輪衝刺時的發光保護光環
+        if (isBoostingToArch || boostTimer > 0) {
+          ctx.strokeStyle = isBoostingToArch ? 'rgba(56, 189, 248, 0.95)' : 'rgba(253, 224, 71, 0.85)';
+          ctx.lineWidth = isBoostingToArch ? 7 : 5;
+          ctx.beginPath();
+          ctx.ellipse(0, -10, isBoostingToArch ? 68 : 62, isBoostingToArch ? 52 : 46, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // 四個大輪胎 (帶胎紋旋轉動畫)
+        const wheelSpin = Math.floor(trackZ / 15) % 2 === 0;
+        ctx.fillStyle = '#1e293b';
+        // 後左輪 & 後右輪
+        drawRoundedRect(ctx, -50, -6, 18, 28, 6); ctx.fill();
+        drawRoundedRect(ctx, 32, -6, 18, 28, 6); ctx.fill();
+        // 前左輪 & 前右輪
+        drawRoundedRect(ctx, -42, -32, 14, 20, 5); ctx.fill();
+        drawRoundedRect(ctx, 28, -32, 14, 20, 5); ctx.fill();
+
+        // 輪胎高光條紋
+        ctx.fillStyle = wheelSpin ? '#475569' : '#64748b';
+        ctx.fillRect(-47, wheelSpin ? 0 : 8, 12, 5);
+        ctx.fillRect(35, wheelSpin ? 0 : 8, 12, 5);
+
+        // 賽車流線型車身 (紅金配色)
+        const bodyGrad = ctx.createLinearGradient(0, -35, 0, 16);
+        bodyGrad.addColorStop(0, '#ef4444');
+        bodyGrad.addColorStop(1, '#b91c1c');
+        ctx.fillStyle = bodyGrad;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(-24, -36);
+        ctx.lineTo(24, -36);
+        ctx.lineTo(36, 8);
+        ctx.lineTo(-36, 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 車頭黃色賽車條紋與編號牌
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.moveTo(-12, -35);
+        ctx.lineTo(12, -35);
+        ctx.lineTo(16, -12);
+        ctx.lineTo(-16, -12);
+        ctx.closePath();
+        ctx.fill();
+
+        // 雙排氣管與尾焰特效
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(-22, 6, 10, 11);
+        ctx.fillRect(12, 6, 10, 11);
+
+        const flameLen = isBoostingToArch
+          ? 48 + Math.random() * 20
+          : (boostTimer > 0 ? 28 + Math.random() * 14 : 10 + Math.random() * 6);
+        ctx.fillStyle = isBoostingToArch ? '#00f2fe' : (boostTimer > 0 ? '#38bdf8' : '#fb923c');
+        ctx.beginPath();
+        ctx.moveTo(-21, 17);
+        ctx.lineTo(-13, 17);
+        ctx.lineTo(-17, 17 + flameLen);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(13, 17);
+        ctx.lineTo(21, 17);
+        ctx.lineTo(17, 17 + flameLen);
+        ctx.closePath();
+        ctx.fill();
+
+        // 小小賽車手頭盔 (藍白校徽配色)
+        ctx.fillStyle = '#1d4ed8';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, -26, 17, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 頭盔護目鏡
+        ctx.fillStyle = '#38bdf8';
+        drawRoundedRect(ctx, -12, -32, 24, 9, 4);
+        ctx.fill();
+
+        // 飄揚的金色小圍巾
+        const scarfWave = Math.sin(performance.now() * 0.018) * 5;
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(10, -14);
+        ctx.quadraticCurveTo(24, -12 + scarfWave, 34, -6 - scarfWave);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      /* =====================================================================
+       * 10. 響應式 Canvas 縮放 (支援 Retina / devicePixelRatio)
+       * ===================================================================== */
+      function resizeCanvas() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      /* =====================================================================
+       * 11. 觸控滑動、直接點擊車道/拱門、底部方向鍵、鍵盤與滑鼠事件綁定
+       * ===================================================================== */
+      function selectLaneByScreenX(clientX) {
+        const ratio = clientX / window.innerWidth;
+        if (ratio < 0.36) targetKartX = LANES[0];
+        else if (ratio > 0.64) targetKartX = LANES[2];
+        else targetKartX = LANES[1];
+        hasTargetSnap = true;
+      }
+
+      // 畫布手指觸控滑動 + 直接點擊左/中/右車道或拱門快速切換
+      canvas.addEventListener('touchstart', (e) => {
+        if (gameState !== 'PLAYING') return;
+        if (e.touches.length > 0) {
+          isTouchDragging = true;
+          hasTargetSnap = false;
+          pointerDownX = e.touches[0].clientX;
+          pointerDownY = e.touches[0].clientY;
+          dragStartX = pointerDownX;
+          dragStartKartX = kartX;
+        }
+      }, { passive: true });
+
+      canvas.addEventListener('touchmove', (e) => {
+        if (gameState !== 'PLAYING' || !isTouchDragging) return;
+        if (e.touches.length > 0) {
+          const deltaX = e.touches[0].clientX - dragStartX;
+          // 靈敏度：滑動螢幕寬度的 36% 即可橫跨整條賽道
+          const sensitivity = Math.max(140, window.innerWidth * 0.36);
+          targetKartX = Math.max(-0.98, Math.min(0.98, dragStartKartX + deltaX / sensitivity));
+        }
+      }, { passive: true });
+
+      canvas.addEventListener('touchend', (e) => {
+        if (gameState === 'PLAYING' && isTouchDragging && e.changedTouches.length > 0) {
+          const endX = e.changedTouches[0].clientX;
+          const endY = e.changedTouches[0].clientY;
+          // 輕觸一下屏幕（移動距離小於 14px）：若持有加速道具則立即向前加速至通過拱門，否則切換車道
+          if (Math.hypot(endX - pointerDownX, endY - pointerDownY) < 14) {
+            if (boostCharges > 0 && !isBoostingToArch) {
+              activateBoost();
+            } else {
+              selectLaneByScreenX(endX);
+            }
+          }
+        }
+        isTouchDragging = false;
+      }, { passive: true });
+
+      // 滑鼠拖曳與輕觸/點擊支援 (桌面瀏覽器)
+      let isMouseDragging = false;
+      canvas.addEventListener('mousedown', (e) => {
+        if (gameState !== 'PLAYING') return;
+        isMouseDragging = true;
+        isTouchDragging = true;
+        hasTargetSnap = false;
+        pointerDownX = e.clientX;
+        pointerDownY = e.clientY;
+        dragStartX = e.clientX;
+        dragStartKartX = kartX;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isMouseDragging || gameState !== 'PLAYING') return;
+        const deltaX = e.clientX - dragStartX;
+        const sensitivity = Math.max(190, window.innerWidth * 0.34);
+        targetKartX = Math.max(-0.98, Math.min(0.98, dragStartKartX + deltaX / sensitivity));
+      });
+
+      window.addEventListener('mouseup', (e) => {
+        if (isMouseDragging && gameState === 'PLAYING') {
+          if (Math.hypot(e.clientX - pointerDownX, e.clientY - pointerDownY) < 10) {
+            if (boostCharges > 0 && !isBoostingToArch) {
+              activateBoost();
+            } else {
+              selectLaneByScreenX(e.clientX);
+            }
+          }
+        }
+        isMouseDragging = false;
+        isTouchDragging = false;
+      });
+
+      // 底部左右方向按鈕與加速觸發按鈕
+      const btnLeft = document.getElementById('btnLeft');
+      const btnRight = document.getElementById('btnRight');
+      const btnBoost = document.getElementById('btnBoost');
+
+      function handleBoostTrigger(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        activateBoost();
+      }
+      btnBoost.addEventListener('touchstart', handleBoostTrigger, { passive: false });
+      btnBoost.addEventListener('click', handleBoostTrigger);
+
+      function bindHoldButton(btn, dir) {
+        const startHold = (e) => {
+          e.preventDefault();
+          steerInput = dir;
+        };
+        const endHold = (e) => {
+          e.preventDefault();
+          if (steerInput === dir) steerInput = 0;
+        };
+        btn.addEventListener('touchstart', startHold, { passive: false });
+        btn.addEventListener('touchend', endHold, { passive: false });
+        btn.addEventListener('touchcancel', endHold, { passive: false });
+        btn.addEventListener('mousedown', startHold);
+        btn.addEventListener('mouseup', endHold);
+        btn.addEventListener('mouseleave', endHold);
+      }
+
+      bindHoldButton(btnLeft, -1);
+      bindHoldButton(btnRight, 1);
+
+      // 鍵盤方向鍵 (← / → 或 A / D 左右移動；↑ 或 W 向前加速)
+      const keysDown = {};
+      window.addEventListener('keydown', (e) => {
+        keysDown[e.code] = true;
+        if ((e.code === 'ArrowUp' || e.code === 'KeyW') && !e.repeat) {
+          activateBoost();
+        }
+        updateKeyboardSteer();
+      });
+      window.addEventListener('keyup', (e) => {
+        keysDown[e.code] = false;
+        updateKeyboardSteer();
+      });
+
+      function updateKeyboardSteer() {
+        const left = keysDown['ArrowLeft'] || keysDown['KeyA'];
+        const right = keysDown['ArrowRight'] || keysDown['KeyD'];
+        if (left && !right) steerInput = -1;
+        else if (right && !left) steerInput = 1;
+        else steerInput = 0;
+      }
+
+      // 頂部與結算畫面按鈕綁定
+      document.getElementById('soundToggleBtn').addEventListener('click', function () {
+        const isOn = sfx.toggle();
+        this.textContent = isOn ? '🔊' : '🔇';
+      });
+
+      document.getElementById('startGameBtn').addEventListener('click', startGame);
+      document.getElementById('restartBtn').addEventListener('click', startGame);
+
+      // 下載單一完整 HTML 檔案 (方便直接部署至 GitHub Pages)
+      document.getElementById('downloadHtmlBtn').addEventListener('click', () => {
+        const fullHtml = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+        const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'PLK_TKP_P3_Math_Kart.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+
+      /* =====================================================================
+       * 12. 啟動主動畫迴圈 (window.onload)
+       * ===================================================================== */
+      let lastTimestamp = 0;
+      function gameLoop(timestamp) {
+        if (!lastTimestamp) lastTimestamp = timestamp;
+        const dt = Math.min(0.05, (timestamp - lastTimestamp) / 1000);
+        lastTimestamp = timestamp;
+
+        updateGame(dt);
+        renderGame();
+
+        requestAnimationFrame(gameLoop);
+      }
+
+      window.onload = function () {
+        resizeCanvas();
+        requestAnimationFrame(gameLoop);
+      };
+    })();
+  </script>
+</body>
+</html>
